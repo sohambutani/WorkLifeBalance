@@ -1,28 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:worklifebalance/notification.dart';
 import 'goal.dart';
 import 'health.dart';
 import 'activity.dart';
 import 'task.dart';
 import 'calender.dart';
+import 'register.dart';
 
 void main() {
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Home(),
+      theme: ThemeData(
+        primaryColor: Colors.deepPurple, // Set your desired primary color
+        hintColor: Colors.deepPurpleAccent, // Set your desired accent color
+      ),
     );
   }
 }
 
 class Home extends StatelessWidget {
+  final List<String> images = [
+    'assets/first.png',
+    'assets/second.png',
+    'assets/third.png',
+    'assets/fourth.png',
+    'assets/fifth.png',
+  ];
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hii, User'),
+        title: Text('Hello, User'),
         actions: [
           IconButton(
             icon: Icon(Icons.settings),
@@ -30,79 +46,99 @@ class Home extends StatelessWidget {
           ),
           IconButton(
             icon: Icon(Icons.notifications),
-            onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationPage()),
-            );},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => NotificationPage()),
+              );
+            },
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: FeatureSquareWithText(
+      body: Column(
+        children: [
+          CarouselSlider(
+            items: images.map((image) {
+              return Image.asset(
+                image,
+                fit: BoxFit.cover,
+                width: MediaQuery.of(context).size.width,
+              );
+            }).toList(),
+            options: CarouselOptions(
+              height: 200.0,
+              autoPlay: true,
+              enlargeCenterPage: true,
+              aspectRatio: 16 / 9,
+              autoPlayCurve: Curves.fastOutSlowIn,
+              enableInfiniteScroll: true,
+              autoPlayAnimationDuration: Duration(milliseconds: 800),
+              viewportFraction: 1.0, // Set to 1.0 for full width
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: GridView.count(
+                crossAxisCount: 2,
+                mainAxisSpacing: 16.0,
+                crossAxisSpacing: 16.0,
+                children: [
+                  FeatureSquareWithText(
                     imagePath: 'assets/employee.png',
                     title: 'Goal Page',
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => GoalPage()),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => GoalPage()),
                       );
                     },
                   ),
-                ),
-                Expanded(
-                  child: FeatureSquareWithText(
+                  FeatureSquareWithText(
                     imagePath: 'assets/task-list.png',
                     title: 'Task Page',
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => TaskPage()),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => TaskPage()),
                       );
                     },
                   ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: FeatureSquareWithText(
+                  FeatureSquareWithText(
                     imagePath: 'assets/healthcare.png',
                     title: 'Health Page',
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => HealthPage()),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => HealthPage()),
                       );
                     },
                   ),
-                ),
-                Expanded(
-                  child: FeatureSquareWithText(
+                  FeatureSquareWithText(
                     imagePath: 'assets/activity.png',
                     title: 'Activity Page',
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => ActivityPage()),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ActivityPage()),
                       );
                     },
                   ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: FeatureSquareWithText(
+                  FeatureSquareWithText(
                     imagePath: 'assets/deadline.png',
                     title: 'Calendar Page',
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => CalenderPage()),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => CalenderPage()),
                       );
                     },
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -124,21 +160,30 @@ class FeatureSquareWithText extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        margin: EdgeInsets.all(8.0),
         decoration: BoxDecoration(
-          color: Colors.grey.shade700,
-          borderRadius: BorderRadius.circular(20.0),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.5),
+              spreadRadius: 2,
+              blurRadius: 6,
+              offset: Offset(0, 3),
+            ),
+          ],
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
               imagePath,
-              width: 200,
+              width: 80,
             ),
-            SizedBox(height: 8),
+            SizedBox(height: 16),
             Text(
               title,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,color: Colors.white),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+              textAlign: TextAlign.center,
             ),
           ],
         ),

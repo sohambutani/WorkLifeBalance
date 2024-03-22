@@ -4,6 +4,7 @@ import 'package:worklifebalance/firebase_options.dart';
 import 'package:worklifebalance/register.dart';
 import 'package:worklifebalance/login.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'dart:ui' as ui;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
