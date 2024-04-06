@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worklifebalance/home.dart';
 import 'dart:ui' as ui;
+import 'package:worklifebalance/utils.dart';
+
 class MyRegister extends StatefulWidget {
   const MyRegister({Key? key}) : super(key: key);
 
@@ -19,15 +22,28 @@ class _MyRegisterState extends State<MyRegister> {
   Future<void> _signInWithEmailAndPassword() async {
     try {
       await _auth.createUserWithEmailAndPassword(
-        //username: _usernameController.text,
-        email: _emailController.text,
-        password: _passwordController.text,
+        email: _emailController.text.toString(),
+        password: _passwordController.text.toString(),
       );
+
+      // Save the user's email to SharedPreferences
+      saveUserEmail(_emailController.text.toString());
+
       // Navigate to the next screen or perform any other action upon successful sign-up.
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => Home()),
+      );
     } catch (e) {
       print('Error creating user: $e');
     }
   }
+
+  void saveUserEmail(String email) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userEmail', email);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -157,14 +173,22 @@ class _MyRegisterState extends State<MyRegister> {
                                   if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
                                     setState(() {
                                       _errorText = 'All details are required';
+
+                                      _auth.createUserWithEmailAndPassword(
+                                          email: _emailController.text.toString(),
+                                          password: _passwordController.text.toString()).then((value){
+
+                                      }).onError((error, stackTrace){
+                                        Utils().toastMessage(error.toString());
+                                      });
                                     });
-                                    return;
-                                  }
+                                    //return;
+                                  }else{
 
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(builder: (context) => Home()),
-                                  );
+                                  );}
                                 },
                                 style: ButtonStyle(
                                   backgroundColor: MaterialStateProperty.all<Color>(Colors.black),

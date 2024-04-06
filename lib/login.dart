@@ -1,5 +1,9 @@
+import 'package:animated_icon/animated_icon.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:worklifebalance/utils.dart';
 import 'home.dart';
+import 'register.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:ui' as ui;
@@ -20,6 +24,7 @@ class _MyLoginState extends State<MyLogin> {
   final TextEditingController _passwordController = TextEditingController();
   String _errorText = '';
 
+
   Future<void> _signInWithEmailAndPassword() async {
     // if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
     //   setState(() {
@@ -36,11 +41,33 @@ class _MyLoginState extends State<MyLogin> {
       //   context,
       //   MaterialPageRoute(builder: (context) => Home()),
       // );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => Home()),
+      );
     } catch (e) {
       setState(() {
         _errorText = 'Error signing in: $e';
       });
     }
+  }
+  void login(){
+    _auth.signInWithEmailAndPassword(
+        email: _emailController.text,
+        password: _passwordController.text).then((value){
+      saveUserEmail(value.user!.email);
+      Utils().toastMessage(value.user!.email.toString());
+                 Navigator.push(context,
+                   MaterialPageRoute(builder: (context) => Home())
+                 );
+    }).onError((error,stackTrace){
+      debugPrint(error.toString());
+          Utils().toastMessage(error.toString());
+    });
+  }
+  void saveUserEmail(String? email) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userEmail', email ?? '');
   }
   @override
   Widget build(BuildContext context) {
@@ -120,22 +147,41 @@ class _MyLoginState extends State<MyLogin> {
                                     ),
                                   SizedBox(height: 16), // Adjust the spacing between error text and button
 
-                                  TextButton(
-                                    onPressed: () async {
-                                      await _signInWithEmailAndPassword();
+                                  // TextButton(
+                                  //   onPressed: () async {
+                                  //     await _signInWithEmailAndPassword();
+                                  //
+                                  //     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+                                  //       setState(() {
+                                  //         _errorText = 'All details are required';
+                                  //         _auth.createUserWithEmailAndPassword(
+                                  //               email: _emailController.text.toString(),
+                                  //               password: _passwordController.text.toString()).then((value){
+                                  //           Utils().toastMessage(value.user!.email.toString());
+                                  //           Navigator.push(context,
+                                  //             MaterialPageRoute(builder: (context) => Home())
+                                  //           );
+                                  //
+                                  //       }).onError((error, stackTrace){
+                                  //         debugPrint(error.toString());
+                                  //         Utils().toastMessage(error.toString());
+                                  //       });
+                                  //       });
+                                  //     }
+                                  //   },
+                                    TextButton(
+                                      onPressed: () async {
+                                        await _signInWithEmailAndPassword();
 
-                                      if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-                                        setState(() {
-                                          _errorText = 'All details are required';
-                                        });
-                                        return;
-                                      }
+                                        if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+                                          setState(() {
+                                            _errorText = 'All details are required';
+                                          });
 
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (context) => Home()),
-                                      );
-                                    },
+                                          login();
+                                          return;
+                                        }
+                                      },
                                     style: ButtonStyle(
                                       backgroundColor: MaterialStateProperty.all<Color>(Colors.black),
                                       shape: MaterialStateProperty.all<RoundedRectangleBorder>(

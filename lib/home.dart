@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:worklifebalance/login.dart';
 import 'package:worklifebalance/notification.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'goal.dart';
 import 'health.dart';
 import 'activity.dart';
@@ -13,6 +15,7 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -25,7 +28,17 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class Home extends StatelessWidget {
+class Home extends StatefulWidget {
+
+
+
+  @override
+  _HomeState createState() => _HomeState();
+}
+
+class _HomeState extends State<Home> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   final List<String> images = [
     'assets/first.png',
     'assets/second.png',
@@ -37,13 +50,9 @@ class Home extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
-        title: Text('Hello, User'),
         actions: [
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () {},
-          ),
           IconButton(
             icon: Icon(Icons.notifications),
             onPressed: () {
@@ -55,38 +64,83 @@ class Home extends StatelessWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          CarouselSlider(
-            items: images.map((image) {
-              return Image.asset(
-                image,
-                fit: BoxFit.cover,
-                width: MediaQuery.of(context).size.width,
-              );
-            }).toList(),
-            options: CarouselOptions(
-              height: 200.0,
-              autoPlay: true,
-              enlargeCenterPage: true,
-              aspectRatio: 16 / 9,
-              autoPlayCurve: Curves.fastOutSlowIn,
-              enableInfiniteScroll: true,
-              autoPlayAnimationDuration: Duration(milliseconds: 800),
-              viewportFraction: 1.0, // Set to 1.0 for full width
+      drawer: DrawerWidget(),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 50.0, bottom: 20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Hello, ',
+                          style: TextStyle(
+                            fontSize: 24,
+                          ),
+                        ),
+                        Text(
+                          'User',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'How is your work life balance?',
+                      style: TextStyle(
+                        fontSize: 16,
+                      ),
+                    ),
+                    SizedBox(height: 20), // Add padding after the thought
+                    // Add remaining content here
+                  ],
+                ),
+              ),
             ),
-          ),
-          Expanded(
-            child: Padding(
+
+
+            CarouselSlider(
+              items: images.map((image) {
+                return Image.asset(
+                  image,
+                  fit: BoxFit.cover,
+                  width: MediaQuery.of(context).size.width,
+                );
+              }).toList(),
+              options: CarouselOptions(
+                height: 200.0,
+                autoPlay: true,
+                enlargeCenterPage: true,
+                aspectRatio: 16 / 9,
+                autoPlayCurve: Curves.fastOutSlowIn,
+                enableInfiniteScroll: true,
+                autoPlayAnimationDuration: Duration(milliseconds: 800),
+                viewportFraction: 1.0, // Set to 1.0 for full width
+              ),
+            ),
+            SizedBox(height: 16),
+            Padding(
               padding: const EdgeInsets.all(16.0),
               child: GridView.count(
-                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                crossAxisCount: 1,
                 mainAxisSpacing: 16.0,
                 crossAxisSpacing: 16.0,
+                childAspectRatio: 4,
                 children: [
                   FeatureSquareWithText(
-                    imagePath: 'assets/employee.png',
-                    title: 'Goal Page',
+                    imagePath: 'assets/target.png',
+                    title: 'Goal',
                     onTap: () {
                       Navigator.push(
                         context,
@@ -95,8 +149,8 @@ class Home extends StatelessWidget {
                     },
                   ),
                   FeatureSquareWithText(
-                    imagePath: 'assets/task-list.png',
-                    title: 'Task Page',
+                    imagePath: 'assets/clipboard.png',
+                    title: 'Task',
                     onTap: () {
                       Navigator.push(
                         context,
@@ -105,8 +159,8 @@ class Home extends StatelessWidget {
                     },
                   ),
                   FeatureSquareWithText(
-                    imagePath: 'assets/healthcare.png',
-                    title: 'Health Page',
+                    imagePath: 'assets/heart.png',
+                    title: 'Health',
                     onTap: () {
                       Navigator.push(
                         context,
@@ -115,8 +169,8 @@ class Home extends StatelessWidget {
                     },
                   ),
                   FeatureSquareWithText(
-                    imagePath: 'assets/activity.png',
-                    title: 'Activity Page',
+                    imagePath: 'assets/clipboard.png',
+                    title: 'Activity',
                     onTap: () {
                       Navigator.push(
                         context,
@@ -125,8 +179,8 @@ class Home extends StatelessWidget {
                     },
                   ),
                   FeatureSquareWithText(
-                    imagePath: 'assets/deadline.png',
-                    title: 'Calendar Page',
+                    imagePath: 'assets/calendar.png',
+                    title: 'Event',
                     onTap: () {
                       Navigator.push(
                         context,
@@ -137,8 +191,79 @@ class Home extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class DrawerWidget extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              spreadRadius: 2,
+              blurRadius: 6,
+              offset: Offset(2, 0),
+            ),
+          ],
+        ),
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.lightBlue[800],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundImage: AssetImage('assets/profile.png'), // Replace with user image
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'User Name', // Replace with user name
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              title: Text(
+                'user@example.com', // Replace with user email
+                style: TextStyle(
+                  color: Colors.black,
+                ),
+              ),
+              onTap: () {
+                // Add functionality for email tap
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.exit_to_app),
+              title: Text(
+                'Logout',
+                style: TextStyle(
+                  color: Colors.black,
+                ),
+              ),
+              onTap: () {
+                // Add logout functionality here
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -172,18 +297,24 @@ class FeatureSquareWithText extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
           children: [
-            Image.asset(
-              imagePath,
-              width: 80,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  title,
+                  style: TextStyle(fontSize: 16, color: Colors.black),
+                  textAlign: TextAlign.left,
+                ),
+              ),
             ),
-            SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
-              textAlign: TextAlign.center,
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Image.asset(
+                imagePath,
+                width: 80,
+              ),
             ),
           ],
         ),
