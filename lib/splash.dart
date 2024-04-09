@@ -21,8 +21,8 @@ class _SplashScreenState extends State<SplashScreen> {
   }
   Future<void> checkLoginStatus() async {
     WidgetsFlutterBinding.ensureInitialized();
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? userEmail = prefs.getString('userEmail');
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userEmail = prefs.getString('userEmail');
     print('User email from SharedPreferences: $userEmail');
 
     Navigator.pushReplacement(
@@ -39,9 +39,10 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromRGBO(32, 67, 93, 1.0), // Set background color
+     // Set background color
       body: SafeArea(
         child: Container(
+          color: Color.fromRGBO(32, 67, 93, 1.0),
           // You can keep the container if you need it for other purposes
           child: Center(
             child: Column(

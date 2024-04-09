@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:worklifebalance/home.dart';
 import 'home.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(MyApp());
@@ -26,6 +28,38 @@ class GoalPage extends StatefulWidget {
 
 class _GoalPageState extends State<GoalPage> {
   List<Goal> goals = [];
+  @override
+  void initState() {
+    super.initState();
+    _fetchGoals();
+  }
+
+  Future<void> _fetchGoals() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userEmail = prefs.getString('userEmail');
+
+    if (userEmail != null) {
+      FirebaseFirestore.instance
+          .collection('goals')
+          .where('userEmail', isEqualTo: userEmail)
+          .get()
+          .then((QuerySnapshot querySnapshot) {
+        setState(() {
+          goals = querySnapshot.docs.map((doc) {
+            return Goal(
+              name: doc['name'],
+              description: doc['description'],
+              startDate: (doc['startDate'] as Timestamp).toDate(),
+              endDate: (doc['endDate'] as Timestamp).toDate(),
+            );
+          }).toList();
+        });
+      }).catchError((error) {
+        print('Error fetching goals: $error');
+        // Handle error
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +181,7 @@ class _GoalPageState extends State<GoalPage> {
     );
   }
 
-  void _shadowPopup(BuildContext context) {
+  void _shadowPopup(BuildContext context) async {
     String goalName = '';
     String goalDescription = '';
     DateTime startDate = DateTime.now();
@@ -157,6 +191,9 @@ class _GoalPageState extends State<GoalPage> {
     TextEditingController endDateController = TextEditingController();
 
     final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userEmail = prefs.getString('userEmail');
 
     showModalBottomSheet(
       context: context,
@@ -287,7 +324,7 @@ class _GoalPageState extends State<GoalPage> {
                         ),
                         SizedBox(height: 20),
                         ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             if (_formKey.currentState!.validate()) {
                               Goal newGoal = Goal(
                                 name: goalName,
@@ -295,14 +332,26 @@ class _GoalPageState extends State<GoalPage> {
                                 startDate: startDate,
                                 endDate: endDate!,
                               );
-                              setState(() {
-                                goals.add(newGoal);
-                              });
-                              print('Goal Name: $goalName');
-                              print('Goal Description: $goalDescription');
-                              print('Start Date: $startDate');
-                              print('End Date: $endDate');
-                              Navigator.pop(context);
+                              try {
+                                await FirebaseFirestore.instance.collection('goals').add({
+                                  'userEmail': userEmail,
+                                  'name': newGoal.name,
+                                  'description': newGoal.description,
+                                  'startDate': newGoal.startDate,
+                                  'endDate': newGoal.endDate,
+                                });
+                                setState(() {
+                                  goals.add(newGoal);
+                                });
+                                print('Goal Name: $goalName');
+                                print('Goal Description: $goalDescription');
+                                print('Start Date: $startDate');
+                                print('End Date: $endDate');
+                                Navigator.pop(context);
+                              } catch (e) {
+                                print('Error adding goal: $e');
+                                // Handle error
+                              }
                             }
                           },
                           child: Text('Save'),

@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:worklifebalance/home.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(MyApp());
+
 }
+
+
 
 class MyApp extends StatelessWidget {
   @override
@@ -22,47 +28,141 @@ class TaskPage extends StatefulWidget {
   _TaskPageState createState() => _TaskPageState();
 }
 
+
 class _TaskPageState extends State<TaskPage> {
-  List<Task> task = [];
+  List<Task> tasks = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTasksFromFirestore();
+  }
+
+  void _fetchTasksFromFirestore() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userEmail = prefs.getString('userEmail');
+
+    if (userEmail != null) {
+      try {
+        QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+            .collection('tasks')
+            .where('userEmail', isEqualTo: userEmail)
+            .get();
+
+        List<Task> fetchedTasks = querySnapshot.docs.map((doc) {
+          return Task(
+            name: doc['name'],
+            description: doc['description'],
+            priority: doc['priority'],
+            startDate: (doc['startDate'] as Timestamp).toDate(),
+            endDate: (doc['endDate'] as Timestamp).toDate(),
+          );
+        }).toList();
+
+        setState(() {
+          tasks = fetchedTasks;
+        });
+      } catch (e) {
+        print('Error fetching tasks: $e');
+        // Handle error
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Welcome to Task Page'),
+        title: Text('Task'),
+        elevation: 8,
+        backgroundColor: Colors.white,
       ),
       body: Column(
         children: [
           Expanded(
             child: ListView.builder(
-              itemCount: task.length,
+              itemCount: tasks.length,
               itemBuilder: (context, index) {
                 return GestureDetector(
                   onTap: () {
-                    _showTaskDetails(context, task[index]);
+                    _showTaskDetails(context, tasks[index]);
                   },
-                  child: _buildTaskContainer(task[index]),
+                  child: _buildTaskContainer(tasks[index]),
                 );
               },
             ),
           ),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: GestureDetector(
-                onTap: () {
-                  _shadowPopup(context);
-                },
-                child: Image.asset(
-                  'assets/square.png',
-                  height: 40,
-                  width: 40,
-                ),
+        ],
+      ),
+      bottomNavigationBar: BottomAppBar(
+        color: Colors.white,
+        elevation: 8,
+        shape: CircularNotchedRectangle(),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              icon: Icon(Icons.home),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => Home()),
+                );
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.insert_chart),
+              onPressed: () {
+                // Add functionality for graph button
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.calendar_today),
+              onPressed: () {
+                _openCalendar(context);
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.settings),
+              onPressed: () {
+                // _scaffoldKey.currentState?.openDrawer();
+              },
+            ),
+          ],
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          _shadowPopup(context);
+        },
+        backgroundColor: Colors.transparent,
+        elevation: 8,
+        shape: CircleBorder(),
+        child: Container(
+          width: 45.0,
+          height: 45.0,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 4,
+                offset: Offset(0, 2),
               ),
+            ],
+          ),
+          child: Center(
+            child: Image.asset(
+              'assets/plus.png',
+              height: 45,
+              width: 45,
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -91,9 +191,6 @@ class _TaskPageState extends State<TaskPage> {
   }
 
   void _shadowPopup(BuildContext context) {
-    // Your existing code for showing the modal bottom sheet
-
-    // Your existing code for showing the modal bottom sheet
     String taskName = '';
     String taskDescription = '';
     String taskPriority = '';
@@ -134,7 +231,7 @@ class _TaskPageState extends State<TaskPage> {
                   ),
                   SizedBox(height: 20),
                   TextFormField(
-                    decoration: InputDecoration(labelText: 'task Name'),
+                    decoration: InputDecoration(labelText: 'Task Name'),
                     onChanged: (value) {
                       taskName = value;
                     },
@@ -166,8 +263,7 @@ class _TaskPageState extends State<TaskPage> {
                       );
                       if (pickedDate != null && pickedDate != startDate) {
                         startDate = pickedDate;
-                        startDateController.text =
-                        "${startDate.toLocal()}".split(' ')[0];
+                        startDateController.text = "${startDate.toLocal()}".split(' ')[0];
                       }
                     },
                   ),
@@ -184,8 +280,7 @@ class _TaskPageState extends State<TaskPage> {
                       );
                       if (pickedDate != null && pickedDate != endDate) {
                         endDate = pickedDate;
-                        endDateController.text =
-                        "${endDate.toLocal()}".split(' ')[0];
+                        endDateController.text = "${endDate.toLocal()}".split(' ')[0];
                       }
                     },
                   ),
@@ -199,14 +294,10 @@ class _TaskPageState extends State<TaskPage> {
                         startDate: startDate,
                         endDate: endDate,
                       );
+                      _addTaskToFirestore(newTask);
                       setState(() {
-                        task.add(newTask);
+                        tasks.add(newTask);
                       });
-                      print('Task Name: $taskName');
-                      print('Task Description: $taskDescription');
-                      print('Task Priority: $taskPriority');
-                      print('Start Date: $startDate');
-                      print('End Date: $endDate');
                       Navigator.pop(context);
                     },
                     child: Text('Save'),
@@ -247,6 +338,10 @@ class _TaskPageState extends State<TaskPage> {
                 TextFormField(
                   controller: descriptionController,
                   decoration: InputDecoration(labelText: 'Task Description'),
+                ),
+                TextFormField(
+                  controller: priorityController,
+                  decoration: InputDecoration(labelText: 'Task Priority'),
                 ),
                 SizedBox(height: 10),
                 InkWell(
@@ -292,14 +387,15 @@ class _TaskPageState extends State<TaskPage> {
           actions: <Widget>[
             ElevatedButton(
               onPressed: () {
-                Task updatedGoal = Task(
+                Task updatedTask = Task(
                   name: nameController.text,
                   description: descriptionController.text,
                   priority: priorityController.text,
                   startDate: newStartDate ?? task.startDate,
                   endDate: newEndDate ?? task.endDate,
                 );
-                Navigator.pop(context, updatedGoal);
+                _updateTaskInFirestore(updatedTask);
+                Navigator.pop(context, updatedTask);
               },
               child: Text('Save'),
             ),
@@ -311,8 +407,70 @@ class _TaskPageState extends State<TaskPage> {
     setState(() {
       task.name = nameController.text;
       task.description = descriptionController.text;
-      // Start and end dates remain unchanged
+      task.priority = priorityController.text;
     });
+  }
+
+  void _addTaskToFirestore(Task task) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userEmail = prefs.getString('userEmail');
+
+    if (userEmail != null) {
+      try {
+        await FirebaseFirestore.instance.collection('tasks').add({
+          'userEmail': userEmail,
+          'name': task.name,
+          'description': task.description,
+          'priority': task.priority,
+          'startDate': task.startDate,
+          'endDate': task.endDate,
+        });
+      } catch (e) {
+        print('Error adding task: $e');
+        // Handle error
+      }
+    }
+  }
+
+  void _updateTaskInFirestore(Task task) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userEmail = prefs.getString('userEmail');
+
+    if (userEmail != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('tasks')
+            .where('userEmail', isEqualTo: userEmail)
+            .where('name', isEqualTo: task.name) // Assuming name is unique
+            .get()
+            .then((QuerySnapshot querySnapshot) {
+          querySnapshot.docs.forEach((doc) {
+            doc.reference.update({
+              'description': task.description,
+              'priority': task.priority,
+              'startDate': task.startDate,
+              'endDate': task.endDate,
+            });
+          });
+        });
+      } catch (e) {
+        print('Error updating task: $e');
+        // Handle error
+      }
+    }
+  }
+
+  void _openCalendar(BuildContext context) async {
+    final DateTime? selectedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+
+    if (selectedDate != null) {
+      // Handle the selected date
+    }
   }
 
   Future<DateTime?> _selectDate(BuildContext context, DateTime initialDate) async {

@@ -26,8 +26,9 @@ class _MyRegisterState extends State<MyRegister> {
         password: _passwordController.text.toString(),
       );
 
-      // Save the user's email to SharedPreferences
+      // Save the user's email and username to SharedPreferences
       saveUserEmail(_emailController.text.toString());
+      saveUserName(_usernameController.text);
 
       // Navigate to the next screen or perform any other action upon successful sign-up.
       Navigator.push(
@@ -37,6 +38,11 @@ class _MyRegisterState extends State<MyRegister> {
     } catch (e) {
       print('Error creating user: $e');
     }
+  }
+
+  void saveUserName(String username) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userName', username);
   }
 
   void saveUserEmail(String email) async {

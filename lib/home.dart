@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worklifebalance/login.dart';
 import 'package:worklifebalance/notification.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:worklifebalance/utils.dart';
 import 'goal.dart';
 import 'health.dart';
 import 'activity.dart';
 import 'task.dart';
-import 'calender.dart';
+import 'event.dart';
 import 'register.dart';
 
 void main() {
@@ -79,7 +81,7 @@ class _HomeState extends State<Home> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Hello, ',
+                          'Hii.., ',
                           style: TextStyle(
                             fontSize: 24,
                           ),
@@ -184,7 +186,7 @@ class _HomeState extends State<Home> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => CalenderPage()),
+                        MaterialPageRoute(builder: (context) => EventPage()),
                       );
                     },
                   ),
@@ -199,75 +201,139 @@ class _HomeState extends State<Home> {
 }
 
 class DrawerWidget extends StatelessWidget {
+  final auth = FirebaseAuth.instance;
+
   @override
   Widget build(BuildContext context) {
     return Drawer(
       child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              spreadRadius: 2,
-              blurRadius: 6,
-              offset: Offset(2, 0),
-            ),
-          ],
-        ),
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.lightBlue[800],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundImage: AssetImage('assets/profile.png'), // Replace with user image
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    'User Name', // Replace with user name
-                    style: TextStyle(
+        color: Colors.white,
+        child: FutureBuilder(
+          future: _getUserDetails(),
+          builder: (context, AsyncSnapshot<Map<String, String>> snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return CircularProgressIndicator();
+            } else if (snapshot.hasData) {
+              return ListView(
+                padding: EdgeInsets.zero,
+                children: <Widget>[
+                  DrawerHeader(
+                    decoration: BoxDecoration(
                       color: Colors.white,
-                      fontSize: 18,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.white,
+                          child: Image.asset('assets/profile.png'), // Replace with user image
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          snapshot.data!['userName']!, // Display user's username
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 25,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  ExpansionTile(
+                    leading: Icon(Icons.person, color: Colors.black),
+                    title: Text(
+                      'Profile',
+                      style: TextStyle(
+                        color: Colors.black,
+                      ),
+                    ),
+                    children: [
+                      ListTile(
+                        title: Text(
+                          'Name: ',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${snapshot.data!['userName']!}',
+                          style: TextStyle(
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                      ListTile(
+                        title: Text(
+                          'Email: ',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${snapshot.data!['userEmail']!}',
+                          style: TextStyle(
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  ListTile(
+                    leading: Icon(Icons.settings, color: Colors.black),
+                    title: Text(
+                      'Settings',
+                      style: TextStyle(
+                        color: Colors.black,
+                      ),
+                    ),
+                    onTap: () {
+                      // Add functionality for settings tap
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.exit_to_app, color: Colors.black),
+                    title: Text(
+                      'Logout',
+                      style: TextStyle(
+                        color: Colors.black,
+                      ),
+                    ),
+                    onTap: () {
+                      auth.signOut().then((value) {
+                        Navigator.push(context,
+                            MaterialPageRoute(builder: (context) => MyLogin()));
+                      }).onError((error, stackTrace) {
+                        Utils().toastMessage(error.toString());
+                      });
+                      // Add logout functionality here
+                    },
+                  ),
                 ],
-              ),
-            ),
-            ListTile(
-              title: Text(
-                'user@example.com', // Replace with user email
-                style: TextStyle(
-                  color: Colors.black,
-                ),
-              ),
-              onTap: () {
-                // Add functionality for email tap
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.exit_to_app),
-              title: Text(
-                'Logout',
-                style: TextStyle(
-                  color: Colors.black,
-                ),
-              ),
-              onTap: () {
-                // Add logout functionality here
-              },
-            ),
-          ],
+              );
+            } else {
+              return Text('Error loading user details');
+            }
+          },
         ),
       ),
     );
   }
+
+  Future<Map<String, String>> _getUserDetails() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String userName = prefs.getString('userName') ?? ''; // Return an empty string if username is null
+    String userEmail = prefs.getString('userEmail') ?? ''; // Return an empty string if userEmail is null
+    return {'userName': userName, 'userEmail': userEmail};
+  }
 }
+
+
+
 
 class FeatureSquareWithText extends StatelessWidget {
   final String imagePath;

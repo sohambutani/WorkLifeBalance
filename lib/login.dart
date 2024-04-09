@@ -147,28 +147,6 @@ class _MyLoginState extends State<MyLogin> {
                                     ),
                                   SizedBox(height: 16), // Adjust the spacing between error text and button
 
-                                  // TextButton(
-                                  //   onPressed: () async {
-                                  //     await _signInWithEmailAndPassword();
-                                  //
-                                  //     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-                                  //       setState(() {
-                                  //         _errorText = 'All details are required';
-                                  //         _auth.createUserWithEmailAndPassword(
-                                  //               email: _emailController.text.toString(),
-                                  //               password: _passwordController.text.toString()).then((value){
-                                  //           Utils().toastMessage(value.user!.email.toString());
-                                  //           Navigator.push(context,
-                                  //             MaterialPageRoute(builder: (context) => Home())
-                                  //           );
-                                  //
-                                  //       }).onError((error, stackTrace){
-                                  //         debugPrint(error.toString());
-                                  //         Utils().toastMessage(error.toString());
-                                  //       });
-                                  //       });
-                                  //     }
-                                  //   },
                                     TextButton(
                                       onPressed: () async {
                                         await _signInWithEmailAndPassword();
