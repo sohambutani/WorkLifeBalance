@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,6 +6,7 @@ import 'package:worklifebalance/login.dart';
 import 'package:worklifebalance/notification.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:worklifebalance/utils.dart';
+import 'BMI.dart';
 import 'goal.dart';
 import 'health.dart';
 import 'activity.dart';
@@ -34,6 +36,7 @@ class Home extends StatefulWidget {
 
 
 
+
   @override
   _HomeState createState() => _HomeState();
 }
@@ -48,6 +51,23 @@ class _HomeState extends State<Home> {
     'assets/fourth.png',
     'assets/fifth.png',
   ];
+
+  String userName = ''; // Variable to hold user's name
+
+  @override
+  void initState() {
+    super.initState();
+    _getUserDetails(); // Fetch user details on initialization
+  }
+
+  Future<void> _getUserDetails() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userName = prefs.getString('userName') ?? '';
+    });
+
+
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +107,7 @@ class _HomeState extends State<Home> {
                           ),
                         ),
                         Text(
-                          'User',
+                          userName,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 24,
@@ -150,23 +170,14 @@ class _HomeState extends State<Home> {
                       );
                     },
                   ),
-                  FeatureSquareWithText(
-                    imagePath: 'assets/clipboard.png',
-                    title: 'Task',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => TaskPage()),
-                      );
-                    },
-                  ),
+
                   FeatureSquareWithText(
                     imagePath: 'assets/heart.png',
-                    title: 'Health',
+                    title: 'BMI',
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => HealthPage()),
+                        MaterialPageRoute(builder: (context) => BMI()),
                       );
                     },
                   ),

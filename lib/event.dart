@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:worklifebalance/home.dart';
-import 'home.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:async';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:intl/intl.dart';
+
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  tz.initializeTimeZones();
   runApp(MyApp());
+
 }
 
 class MyApp extends StatelessWidget {
@@ -26,6 +33,37 @@ class EventPage extends StatefulWidget {
 
 class _EventPageState extends State<EventPage> {
   List<Event> events = [];
+
+  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+  FlutterLocalNotificationsPlugin();
+
+  @override
+  void initState() {
+    super.initState();
+    initializeNotifications();
+  }
+
+  Future<void> initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+    AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    final InitializationSettings initializationSettings =
+    InitializationSettings(android: initializationSettingsAndroid);
+
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+    // Initialize timezone package
+    tz.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('Asia/Kolkata')); // Set timezone to Asia/Kolkata
+
+    // After initializing local notifications and timezone, schedule any notifications
+    // Here we can safely call _scheduleNotification
+    DateTime eventDate = DateTime.now().add(Duration(days: 1)); // Event date set to tomorrow
+    _scheduleNotification('Sample Event', eventDate);
+  }
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -62,10 +100,7 @@ class _EventPageState extends State<EventPage> {
             IconButton(
               icon: Icon(Icons.home),
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => Home()),
-                ); // Add functionality for home button
+                // Add functionality for home button
               },
             ),
             IconButton(
@@ -113,10 +148,10 @@ class _EventPageState extends State<EventPage> {
             ],
           ),
           child: Center(
-            child: Image.asset(
-              'assets/plus.png', // Path to your custom image file
-              height: 45, // Adjust the height as needed
-              width: 45, // Adjust the width as needed
+            child: Icon(
+              Icons.add,
+              size: 30,
+              color: Colors.blue,
             ),
           ),
         ),
@@ -152,9 +187,7 @@ class _EventPageState extends State<EventPage> {
     String eventDescription = '';
     DateTime startDate = DateTime.now();
 
-
     TextEditingController startDateController = TextEditingController();
-
 
     final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
@@ -242,24 +275,29 @@ class _EventPageState extends State<EventPage> {
                               lastDate: DateTime(2101),
                             );
 
+                            if (pickedDate != null) {
+                              startDateController.text =
+                              '${pickedDate.day}/${pickedDate.month}/${pickedDate.year}';
+                              startDate = pickedDate;
+                            }
                           },
                         ),
-
                         SizedBox(height: 20),
                         ElevatedButton(
                           onPressed: () {
                             if (_formKey.currentState!.validate()) {
-                              Event newGoal = Event(
+                              Event newEvent = Event(
                                 name: eventName,
                                 description: eventDescription,
                                 startDate: startDate,
                               );
                               setState(() {
-                                events.add(newGoal);
+                                events.add(newEvent);
                               });
                               print('Event Name: $eventName');
                               print('Event Description: $eventDescription');
                               print('Date: $startDate');
+                              _scheduleNotification(eventName, startDate);
                               Navigator.pop(context);
                             }
                           },
@@ -277,10 +315,55 @@ class _EventPageState extends State<EventPage> {
     );
   }
 
+  Future<void> _scheduleNotification(String eventName, DateTime eventDate) async {
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+    // Create Android notification settings
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    AndroidNotificationDetails(
+      'your channel id',
+      'your channel name',
+      channelDescription: 'your channel description',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    // Create notification details
+    const NotificationDetails platformChannelSpecifics =
+    NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    // Calculate notification date (e.g., one day before the event date)
+    final DateTime notificationDate = eventDate.subtract(const Duration(days: 1));
+
+    // Ensure the notification date is in the future
+    if (notificationDate.isAfter(DateTime.now())) {
+      // Schedule the notification
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        0,
+        'Event Reminder',
+        'Your event $eventName is tomorrow!',
+        tz.TZDateTime.from(notificationDate, tz.local),
+        const NotificationDetails(android: androidPlatformChannelSpecifics),
+        androidAllowWhileIdle: true,
+        uiLocalNotificationDateInterpretation:
+        UILocalNotificationDateInterpretation.absoluteTime,
+
+      );
+      print('Notification for $eventName scheduled successfully!');
+    } else {
+      print('Notification date must be in the future.');
+    }
+  }
+
+
+
   void _showEventDetails(BuildContext context, Event event) async {
     TextEditingController nameController = TextEditingController(text: event.name);
-    TextEditingController descriptionController = TextEditingController(text: event.description);
-    TextEditingController startDateController = TextEditingController(text: _formatDate(event.startDate));
+    TextEditingController descriptionController =
+    TextEditingController(text: event.description);
+    TextEditingController startDateController =
+    TextEditingController(text: _formatDate(event.startDate));
 
     DateTime? newStartDate;
 

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:worklifebalance/home.dart';
+import 'package:worklifebalance/statusGraph.dart';
+import 'CompletedGoals.dart';
 import 'home.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart'; // Import uuid package
 
 void main() {
   runApp(MyApp());
@@ -28,6 +31,8 @@ class GoalPage extends StatefulWidget {
 
 class _GoalPageState extends State<GoalPage> {
   List<Goal> goals = [];
+  bool isCompleted = false;
+
   @override
   void initState() {
     super.initState();
@@ -42,15 +47,18 @@ class _GoalPageState extends State<GoalPage> {
       FirebaseFirestore.instance
           .collection('goals')
           .where('userEmail', isEqualTo: userEmail)
+          .where('status', isEqualTo: 'Pending')
           .get()
           .then((QuerySnapshot querySnapshot) {
         setState(() {
           goals = querySnapshot.docs.map((doc) {
             return Goal(
+              id: doc.id,
               name: doc['name'],
               description: doc['description'],
               startDate: (doc['startDate'] as Timestamp).toDate(),
               endDate: (doc['endDate'] as Timestamp).toDate(),
+              status: doc['status'],
             );
           }).toList();
         });
@@ -105,6 +113,10 @@ class _GoalPageState extends State<GoalPage> {
             IconButton(
               icon: Icon(Icons.insert_chart),
               onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => StatusGraph()),
+                );
                 // Add functionality for graph button
               },
             ),
@@ -115,8 +127,17 @@ class _GoalPageState extends State<GoalPage> {
               },
             ),
             IconButton(
-              icon: Icon(Icons.settings),
-              onPressed: () {
+              icon:  Icon(
+                Icons.verified_rounded,
+
+              ),
+              onPressed: (
+
+                  ) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => GoalStatusPage()),
+                );
                 // _scaffoldKey.currentState?.openDrawer();
               },
             ),
@@ -158,28 +179,168 @@ class _GoalPageState extends State<GoalPage> {
     );
   }
 
+  void _showGoalAchievedPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Goal Achieved!'),
+          content: Text('Congratulations! You have achieved your goal.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildGoalContainer(Goal goal) {
     return Container(
-      margin: EdgeInsets.all(8.0),
-      padding: EdgeInsets.all(8.0),
+      margin: EdgeInsets.symmetric(vertical: 8.0),
+      padding: EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            spreadRadius: 5,
+            color: Colors.grey.withOpacity(0.5),
+            spreadRadius: 3,
             blurRadius: 7,
             offset: Offset(0, 3),
           ),
         ],
       ),
-      child: Text(
-        goal.name,
-        style: TextStyle(fontSize: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: goal.isCompleted,
+                onChanged: (value) {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: Text('Confirm'),
+                        content: Text('Are you sure you want to mark this goal as completed?'),
+                        actions: <Widget>[
+                          TextButton(
+                            child: Text('No'),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                          TextButton(
+                            child: Text('Yes'),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              setState(() {
+                                goal.isCompleted = value ?? false;
+                              });
+                              if (goal.isCompleted) {
+                                _updateGoalStatus(goal);
+                                _showGoalAchievedPopup(context);
+                              }
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                activeColor: goal.isCompleted ? Colors.green : null,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    _showGoalDetails(context, goal);
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        goal.name,
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Description: ${goal.description}',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Start Date: ${_formatDate(goal.startDate)}',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'End Date: ${_formatDate(goal.endDate)}',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.delete),
+                onPressed: () {
+                  _showDeleteConfirmation(context, goal);
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
+
+
+  void _showDeleteConfirmation(BuildContext context, Goal goal) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Confirm'),
+          content: Text('Are you sure you want to delete this goal?'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Delete'),
+              onPressed: () {
+                _deleteGoal(goal);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+  void _deleteGoal(Goal goal) async {
+    try {
+      await FirebaseFirestore.instance.collection('goals').doc(goal.id).delete();
+      setState(() {
+        goals.removeWhere((element) => element.id == goal.id);
+      });
+    } catch (e) {
+      print('Error deleting goal: $e');
+      // Handle error
+    }
+  }
+
 
   void _shadowPopup(BuildContext context) async {
     String goalName = '';
@@ -327,11 +488,14 @@ class _GoalPageState extends State<GoalPage> {
                           onPressed: () async {
                             if (_formKey.currentState!.validate()) {
                               Goal newGoal = Goal(
+                                id: Uuid().v4(), // Generate UUID for the goal ID
                                 name: goalName,
                                 description: goalDescription,
                                 startDate: startDate,
                                 endDate: endDate!,
+                                status: 'Pending', // Add status argument
                               );
+
                               try {
                                 await FirebaseFirestore.instance.collection('goals').add({
                                   'userEmail': userEmail,
@@ -339,6 +503,7 @@ class _GoalPageState extends State<GoalPage> {
                                   'description': newGoal.description,
                                   'startDate': newGoal.startDate,
                                   'endDate': newGoal.endDate,
+                                  'status': 'Pending', // Set status to Pending by default
                                 });
                                 setState(() {
                                   goals.add(newGoal);
@@ -380,76 +545,110 @@ class _GoalPageState extends State<GoalPage> {
     await showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Edit Goal'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: InputDecoration(labelText: 'Goal Name'),
-                ),
-                TextFormField(
-                  controller: descriptionController,
-                  decoration: InputDecoration(labelText: 'Goal Description'),
-                ),
-                SizedBox(height: 10),
-                InkWell(
-                  onTap: () async {
-                    newStartDate = await _selectDate(context, goal.startDate);
-                    if (newStartDate != null) {
-                      setState(() {
-                        goal.startDate = newStartDate!;
-                        startDateController.text = _formatDate(newStartDate!);
-                      });
-                    }
-                  },
-                  child: IgnorePointer(
-                    child: TextFormField(
-                      controller: startDateController,
-                      decoration: InputDecoration(labelText: 'Start Date'),
-                      readOnly: true,
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          elevation: 0.0,
+          backgroundColor: Colors.transparent,
+          child: SingleChildScrollView(
+            child: Container(
+              padding: EdgeInsets.all(20.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(20.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10.0,
+                    offset: const Offset(0.0, 10.0),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Edit Goal',
+                    style: TextStyle(
+                      fontSize: 24.0,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                SizedBox(height: 10),
-                InkWell(
-                  onTap: () async {
-                    newEndDate = await _selectDate(context, goal.endDate);
-                    if (newEndDate != null) {
-                      setState(() {
-                        goal.endDate = newEndDate!;
-                        endDateController.text = _formatDate(newEndDate!);
-                      });
-                    }
-                  },
-                  child: IgnorePointer(
-                    child: TextFormField(
-                      controller: endDateController,
-                      decoration: InputDecoration(labelText: 'End Date'),
-                      readOnly: true,
+                  SizedBox(height: 20.0),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: InputDecoration(labelText: 'Goal Name'),
+                  ),
+                  SizedBox(height: 10.0),
+                  TextFormField(
+                    controller: descriptionController,
+                    decoration: InputDecoration(labelText: 'Goal Description'),
+                  ),
+                  SizedBox(height: 10.0),
+                  InkWell(
+                    onTap: () async {
+                      newStartDate = await _selectDate(context, goal.startDate);
+                      if (newStartDate != null) {
+                        setState(() {
+                          goal.startDate = newStartDate!;
+                          startDateController.text = _formatDate(newStartDate!);
+                        });
+                      }
+                    },
+                    child: IgnorePointer(
+                      child: TextFormField(
+                        controller: startDateController,
+                        decoration: InputDecoration(labelText: 'Start Date'),
+                        readOnly: true,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  SizedBox(height: 10.0),
+                  InkWell(
+                    onTap: () async {
+                      newEndDate = await _selectDate(context, goal.endDate);
+                      if (newEndDate != null) {
+                        setState(() {
+                          goal.endDate = newEndDate!;
+                          endDateController.text = _formatDate(newEndDate!);
+                        });
+                      }
+                    },
+                    child: IgnorePointer(
+                      child: TextFormField(
+                        controller: endDateController,
+                        decoration: InputDecoration(labelText: 'End Date'),
+                        readOnly: true,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20.0),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () async {
+                          Goal updatedGoal = Goal(
+                            id: goal.id,
+                            name: nameController.text,
+                            description: descriptionController.text,
+                            startDate: newStartDate ?? goal.startDate,
+                            endDate: newEndDate ?? goal.endDate,
+                            status: 'Pending',
+                          );
+                          await _updateGoal(updatedGoal);
+                          Navigator.pop(context);
+                        },
+                        child: Text('Save'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-          actions: <Widget>[
-            ElevatedButton(
-              onPressed: () {
-                Goal updatedGoal = Goal(
-                  name: nameController.text,
-                  description: descriptionController.text,
-                  startDate: newStartDate ?? goal.startDate,
-                  endDate: newEndDate ?? goal.endDate,
-                );
-                Navigator.pop(context, updatedGoal);
-              },
-              child: Text('Save'),
-            ),
-          ],
         );
       },
     );
@@ -459,6 +658,56 @@ class _GoalPageState extends State<GoalPage> {
       goal.description = descriptionController.text;
       // Start and end dates remain unchanged
     });
+  }
+
+  Future<void> _updateGoal(Goal goal) async {
+    try {
+      await FirebaseFirestore.instance.collection('goals').doc(goal.id).update({
+        'name': goal.name,
+        'description': goal.description,
+        'startDate': goal.startDate,
+        'endDate': goal.endDate,
+      });
+      int index = goals.indexWhere((element) => element.id == goal.id);
+      if (index != -1) {
+        setState(() {
+          goals[index] = goal;
+        });
+      }
+    } catch (e) {
+      print('Error updating goal: $e');
+      // Handle error
+    }
+  }
+
+  void _updateGoalStatus(Goal goal) async {
+    DateTime currentDate = DateTime.now();
+    String status;
+
+    if (goal.endDate.isAfter(currentDate)) {
+      // If end date is after today's date, status is 'completed'
+      status = 'Completed';
+    } else if (goal.endDate.isBefore(currentDate)) {
+      // If end date is before today's date, status is 'lateDone'
+      status = 'LateDone';
+    } else {
+      // If end date is today, you may have a different handling
+      status = 'Pending';
+    }
+
+    try {
+      await FirebaseFirestore.instance.collection('goals').doc(goal.id).update({
+        'status': status,
+      });
+      setState(() {
+        goal.status = status;
+
+      });
+      _fetchGoals();
+    } catch (e) {
+      print('Error updating goal status: $e');
+      // Handle error
+    }
   }
 
   void _openCalendar(BuildContext context) async {
@@ -491,15 +740,21 @@ class _GoalPageState extends State<GoalPage> {
 }
 
 class Goal {
+  late String id;
   String name;
   String description;
   DateTime startDate;
   DateTime endDate;
+  String status;
+  bool isCompleted; // Add isCompleted property
 
   Goal({
+    required this.id,
     required this.name,
     required this.description,
     required this.startDate,
     required this.endDate,
+    required this.status,
+    this.isCompleted = false, // Initialize isCompleted to false by default
   });
 }

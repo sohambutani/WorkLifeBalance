@@ -231,6 +231,7 @@ class _TaskPageState extends State<TaskPage> {
                   ),
                   SizedBox(height: 20),
                   TextFormField(
+
                     decoration: InputDecoration(labelText: 'Task Name'),
                     onChanged: (value) {
                       taskName = value;

@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
+import 'package:worklifebalance/activityStatusGraph.dart';
+
+import 'ActivitiesStatusPage.dart'; // Import the uuid package
 
 void main() {
   runApp(GoalActivityApp());
@@ -81,6 +85,10 @@ class _ActivityPageState extends State<ActivityPage> {
             IconButton(
               icon: Icon(Icons.insert_chart),
               onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ActivityStatusGraph()),
+                );
                 // Add functionality for graph button
               },
             ),
@@ -91,8 +99,15 @@ class _ActivityPageState extends State<ActivityPage> {
               },
             ),
             IconButton(
-              icon: Icon(Icons.settings),
+            icon:  Icon(
+              Icons.verified_rounded,
+
+            ),
               onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ActivityStatusPage()),
+                );
                 // _scaffoldKey.currentState?.openDrawer();
               },
             ),
@@ -131,35 +146,184 @@ class _ActivityPageState extends State<ActivityPage> {
   }
 
   Widget _buildActivityContainer(Activity activity) {
+
+
+
+
     return Container(
-      margin: EdgeInsets.all(8.0),
-      padding: EdgeInsets.all(8.0),
+      margin: EdgeInsets.symmetric(vertical: 8.0),
+      padding: EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            spreadRadius: 5,
+            color: Colors.grey.withOpacity(0.5),
+            spreadRadius: 3,
             blurRadius: 7,
             offset: Offset(0, 3),
           ),
         ],
       ),
-      child: Text(
-        activity.name,
-        style: TextStyle(fontSize: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: activity.status == 'Completed',
+                onChanged: (value) {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: Text('Confirm'),
+                        content: Text('Are you sure you want to mark this activity as completed?'),
+                        actions: <Widget>[
+                          TextButton(
+                            child: Text('No'),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                          TextButton(
+                            child: Text('Yes'),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              setState(() {
+                                if (value!) {
+                                  activity.status = 'Completed';
+                                } else {
+                                  activity.status = ''; // Clear the status
+                                }
+                              });
+                              _updateActivityStatus(activity);
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                activeColor: activity.status == 'Completed' ? Colors.green : null,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    _showActivityDetails(context, activity);
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        activity.name,
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Description: ${activity.description}',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Start Date: ${_formatDate(activity.startDate)}',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'End Date: ${_formatDate(activity.endDate)}',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.delete),
+                onPressed: () {
+                  _showDeleteConfirmation(context, activity);
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
+
+
+  void _showDeleteConfirmation(BuildContext context, Activity activity) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Confirm'),
+          content: Text('Are you sure you want to delete this activity?'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Delete'),
+              onPressed: () {
+                _deleteActivity(activity);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _deleteActivity(Activity activity) async {
+    try {
+      await FirebaseFirestore.instance.collection('activities').doc(activity.id).delete();
+      setState(() {
+        activities.removeWhere((element) => element.id == activity.id);
+      });
+    } catch (e) {
+      print('Error deleting activity: $e');
+      // Handle error
+    }
+  }
+
+
+
+
+  void _updateActivityStatus(Activity activity) async {
+    DateTime currentDate = DateTime.now();
+    String status = '';
+    try {
+      if (activity.endDate.isAfter(currentDate)) {
+        // If endDate is after today's date, set status to 'Completed'
+        status = 'Completed';
+      } else {
+        // If endDate is before today's date, set status to 'LateDone'
+        status = 'LateDone';
+      }
+      await _activityCollection.doc(activity.id).update({'status': status});
+      print('Activity status updated successfully!');
+      setState(() {
+        _fetchActivitiesFromFirestore();
+      });
+    } catch (e) {
+      print('Error updating activity status in Firestore: $e');
+    }
+  }
+
+
 
   void _showAddActivityPopup(BuildContext context) async {
     TextEditingController nameController = TextEditingController();
     TextEditingController descriptionController = TextEditingController();
     TextEditingController startDateController = TextEditingController();
     TextEditingController endDateController = TextEditingController();
-    TextEditingController startTimeController = TextEditingController();
-    TextEditingController endTimeController = TextEditingController();
 
     await showModalBottomSheet(
       context: context,
@@ -197,7 +361,8 @@ class _ActivityPageState extends State<ActivityPage> {
                   ),
                   SizedBox(height: 10),
                   TextFormField(
-                    decoration: InputDecoration(labelText: 'Activity Description'),
+                    decoration: InputDecoration(
+                        labelText: 'Activity Description'),
                     controller: descriptionController,
                   ),
                   SizedBox(height: 10),
@@ -205,31 +370,21 @@ class _ActivityPageState extends State<ActivityPage> {
                     children: [
                       Expanded(
                         child: TextFormField(
-                          decoration: InputDecoration(labelText: 'Start Date'),
+                          decoration: InputDecoration(
+                              labelText: 'Start Date and Time'),
                           onTap: () async {
-                            final DateTime? pickedDate = await _selectDate(context, DateTime.now());
-                            if (pickedDate != null) {
+                            final DateTime? pickedDateTime =
+                            await _selectDateTime(
+                                context, DateTime.now());
+                            if (pickedDateTime != null) {
                               setState(() {
-                                startDateController.text = DateFormat('yyyy-MM-dd').format(pickedDate);
+                                startDateController.text =
+                                    DateFormat('yyyy-MM-dd HH:mm')
+                                        .format(pickedDateTime);
                               });
                             }
                           },
                           controller: startDateController,
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: TextFormField(
-                          decoration: InputDecoration(labelText: 'Start Time'),
-                          onTap: () async {
-                            final TimeOfDay? pickedTime = await _selectTime(context, TimeOfDay.now());
-                            if (pickedTime != null) {
-                              setState(() {
-                                startTimeController.text = pickedTime.format(context);
-                              });
-                            }
-                          },
-                          controller: startTimeController,
                         ),
                       ),
                     ],
@@ -239,31 +394,21 @@ class _ActivityPageState extends State<ActivityPage> {
                     children: [
                       Expanded(
                         child: TextFormField(
-                          decoration: InputDecoration(labelText: 'End Date'),
+                          decoration: InputDecoration(
+                              labelText: 'End Date and Time'),
                           onTap: () async {
-                            final DateTime? pickedDate = await _selectDate(context, DateTime.now());
-                            if (pickedDate != null) {
+                            final DateTime? pickedDateTime =
+                            await _selectDateTime(
+                                context, DateTime.now());
+                            if (pickedDateTime != null) {
                               setState(() {
-                                endDateController.text = DateFormat('yyyy-MM-dd').format(pickedDate);
+                                endDateController.text =
+                                    DateFormat('yyyy-MM-dd HH:mm')
+                                        .format(pickedDateTime);
                               });
                             }
                           },
                           controller: endDateController,
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: TextFormField(
-                          decoration: InputDecoration(labelText: 'End Time'),
-                          onTap: () async {
-                            final TimeOfDay? pickedTime = await _selectTime(context, TimeOfDay.now());
-                            if (pickedTime != null) {
-                              setState(() {
-                                endTimeController.text = pickedTime.format(context);
-                              });
-                            }
-                          },
-                          controller: endTimeController,
                         ),
                       ),
                     ],
@@ -276,8 +421,6 @@ class _ActivityPageState extends State<ActivityPage> {
                         descriptionController.text,
                         startDateController.text,
                         endDateController.text,
-                        startTimeController.text,
-                        endTimeController.text,
                       );
                       Navigator.pop(context);
                     },
@@ -292,33 +435,35 @@ class _ActivityPageState extends State<ActivityPage> {
     );
   }
 
-  void _addActivityToFirestore(String name, String description, String startDateStr, String endDateStr, String startTimeStr, String endTimeStr) async {
+  void _addActivityToFirestore(String name, String description,
+      String startDateStr, String endDateStr) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? userEmail = prefs.getString('user_email');
+      String? userEmail = prefs.getString('userEmail');
 
       if (userEmail != null) {
         DateTime startDate = DateTime.parse(startDateStr);
         DateTime endDate = DateTime.parse(endDateStr);
-        TimeOfDay startTime = _parseTimeOfDay(startTimeStr);
-        TimeOfDay endTime = _parseTimeOfDay(endTimeStr);
 
-        await _activityCollection.add({
+        String activityId = Uuid().v4(); // Generate a unique ID
+        await _activityCollection.doc(activityId).set({
+          'id': activityId, // Save the ID in Firestore
           'email': userEmail,
           'name': name,
           'description': description,
           'startDate': startDate,
           'endDate': endDate,
-          'startTime': startTime,
-          'endTime': endTime,
+          'status' : "Pending",
         });
 
         setState(() {
           activities.add(Activity(
+            id: activityId, // Pass the generated ID
             name: name,
             description: description,
-            startTime: startDate.add(Duration(hours: startTime.hour, minutes: startTime.minute)),
-            endTime: endDate.add(Duration(hours: endTime.hour, minutes: endTime.minute)),
+            startDate: startDate,
+            endDate: endDate,
+            status: "Pending",
           ));
         });
       } else {
@@ -329,33 +474,18 @@ class _ActivityPageState extends State<ActivityPage> {
     }
   }
 
-  TimeOfDay _parseTimeOfDay(String timeStr) {
-    List<String> parts = timeStr.split(':');
-    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
-  }
-
   void _showActivityDetails(BuildContext context, Activity activity) async {
     TextEditingController nameController =
     TextEditingController(text: activity.name);
     TextEditingController descriptionController =
     TextEditingController(text: activity.description);
     TextEditingController startDateController =
-    TextEditingController(text: _formatDate(activity.startTime));
+    TextEditingController(text: _formatDate(activity.startDate));
     TextEditingController endDateController =
-    TextEditingController(text: _formatDate(activity.endTime));
-    TextEditingController startTimeController = TextEditingController(
-        text: activity.startTime.hour.toString() +
-            ":" +
-            activity.startTime.minute.toString());
-    TextEditingController endTimeController = TextEditingController(
-        text: activity.endTime.hour.toString() +
-            ":" +
-            activity.endTime.minute.toString());
+    TextEditingController(text: _formatDate(activity.endDate));
 
     DateTime? newStartDate;
     DateTime? newEndDate;
-    TimeOfDay? newStartTime;
-    TimeOfDay? newEndTime;
 
     await showDialog(
       context: context,
@@ -373,8 +503,8 @@ class _ActivityPageState extends State<ActivityPage> {
                 ),
                 TextFormField(
                   controller: descriptionController,
-                  decoration:
-                  InputDecoration(labelText: 'Activity Description'),
+                  decoration: InputDecoration(
+                      labelText: 'Activity Description'),
                 ),
                 SizedBox(height: 10),
                 Row(
@@ -382,39 +512,16 @@ class _ActivityPageState extends State<ActivityPage> {
                     Expanded(
                       child: TextFormField(
                         controller: startDateController,
-                        decoration: InputDecoration(labelText: 'Start Date'),
+                        decoration: InputDecoration(
+                            labelText: 'Start Date and Time'),
                         onTap: () async {
-                          newStartDate = await _selectDate(
-                              context, activity.startTime);
+                          newStartDate = await _selectDateTime(
+                              context, activity.startDate);
                           if (newStartDate != null) {
                             setState(() {
-                              activity.startTime = newStartDate!;
+                              activity.startDate = newStartDate!;
                               startDateController.text =
                                   _formatDate(newStartDate!);
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: TextFormField(
-                        controller: startTimeController,
-                        decoration:
-                        InputDecoration(labelText: 'Start Time'),
-                        onTap: () async {
-                          newStartTime = await _selectTime(
-                              context, TimeOfDay.fromDateTime(activity.startTime));
-                          if (newStartTime != null) {
-                            setState(() {
-                              activity.startTime = DateTime(
-                                activity.startTime.year,
-                                activity.startTime.month,
-                                activity.startTime.day,
-                                newStartTime!.hour,
-                                newStartTime!.minute,
-                              );
-                              startTimeController.text = newStartTime!.format(context);
                             });
                           }
                         },
@@ -428,38 +535,16 @@ class _ActivityPageState extends State<ActivityPage> {
                     Expanded(
                       child: TextFormField(
                         controller: endDateController,
-                        decoration: InputDecoration(labelText: 'End Date'),
+                        decoration: InputDecoration(
+                            labelText: 'End Date and Time'),
                         onTap: () async {
-                          newEndDate = await _selectDate(
-                              context, activity.endTime);
+                          newEndDate = await _selectDateTime(
+                              context, activity.endDate);
                           if (newEndDate != null) {
                             setState(() {
-                              activity.endTime = newEndDate!;
+                              activity.endDate = newEndDate!;
                               endDateController.text =
                                   _formatDate(newEndDate!);
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: TextFormField(
-                        controller: endTimeController,
-                        decoration: InputDecoration(labelText: 'End Time'),
-                        onTap: () async {
-                          newEndTime = await _selectTime(
-                              context, TimeOfDay.fromDateTime(activity.endTime));
-                          if (newEndTime != null) {
-                            setState(() {
-                              activity.endTime = DateTime(
-                                activity.endTime.year,
-                                activity.endTime.month,
-                                activity.endTime.day,
-                                newEndTime!.hour,
-                                newEndTime!.minute,
-                              );
-                              endTimeController.text = newEndTime!.format(context);
                             });
                           }
                         },
@@ -480,15 +565,14 @@ class _ActivityPageState extends State<ActivityPage> {
             ElevatedButton(
               onPressed: () {
                 Activity updatedActivity = Activity(
+                  id: activity.id, // Pass the activity ID
                   name: nameController.text,
                   description: descriptionController.text,
-                  startTime: activity.startTime,
-                  endTime: activity.endTime,
+                  startDate: activity.startDate,
+                  endDate: activity.endDate,
+                  status: "Pending",
                 );
-                setState(() {
-                  activity.name = updatedActivity.name;
-                  activity.description = updatedActivity.description;
-                });
+                _updateActivityInFirestore(updatedActivity); // Pass the updated activity
                 Navigator.pop(context); // Close the dialog
               },
               child: Text('Save'),
@@ -501,16 +585,38 @@ class _ActivityPageState extends State<ActivityPage> {
 
   Future<void> _fetchActivitiesFromFirestore() async {
     try {
-      QuerySnapshot snapshot = await _activityCollection.get();
-      List<Activity> fetchedActivities = snapshot.docs.map((doc) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        return Activity.fromMap(data);
-      }).toList();
-      setState(() {
-        activities = fetchedActivities;
-      });
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userEmail = prefs.getString('userEmail');
+
+      if (userEmail != null) {
+        QuerySnapshot snapshot = await _activityCollection
+            .where('email', isEqualTo: userEmail)
+            .where('status', isEqualTo: 'Pending')
+            .get();
+        List<Activity> fetchedActivities = snapshot.docs.map((doc) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          return Activity.fromMap(data); // Remove setting ID here
+        }).toList();
+        setState(() {
+          activities = fetchedActivities;
+        });
+      } else {
+        print('User email not found in SharedPreferences');
+      }
     } catch (e) {
       print('Error fetching activities: $e');
+    }
+  }
+
+  void _updateActivityInFirestore(Activity activity) async {
+    try {
+      // Check if the document exists before updating
+      await _activityCollection.doc(activity.id).update(activity.toMap());
+      print('Activity updated successfully!');
+
+
+    } catch (e) {
+      print('Error updating activity in Firestore: $e');
     }
   }
 
@@ -527,57 +633,73 @@ class _ActivityPageState extends State<ActivityPage> {
     }
   }
 
-  Future<DateTime?> _selectDate(BuildContext context, DateTime initialDate) async {
+  Future<DateTime?> _selectDateTime(BuildContext context, DateTime initialDate) async {
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: initialDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
     );
-    return pickedDate;
-  }
 
-  Future<TimeOfDay?> _selectTime(BuildContext context, TimeOfDay initialTime) async {
-    final TimeOfDay? pickedTime = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-    );
-    return pickedTime;
+    if (pickedDate != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(initialDate),
+      );
+
+      if (pickedTime != null) {
+        return DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        );
+      }
+    }
+
+    return null;
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    return DateFormat('yyyy-MM-dd HH:mm').format(date);
   }
 }
-
 class Activity {
+  String id; // Firestore document ID
   String name;
   String description;
-  DateTime startTime;
-  DateTime endTime;
+  DateTime startDate;
+  DateTime endDate;
+  String status; // New field for activity status
 
   Activity({
+    required this.id, // Make the id parameter required
     required this.name,
     required this.description,
-    required this.startTime,
-    required this.endTime,
+    required this.startDate,
+    required this.endDate,
+    required this.status, // Initialize status
   });
 
   Map<String, dynamic> toMap() {
     return {
       'name': name,
       'description': description,
-      'startTime': startTime,
-      'endTime': endTime,
+      'startDate': startDate,
+      'endDate': endDate,
+      'status': status, // Include status in the map
     };
   }
 
   factory Activity.fromMap(Map<String, dynamic> map) {
     return Activity(
+      id: map['id'], // Get ID from Firestore
       name: map['name'],
       description: map['description'],
-      startTime: (map['startTime'] as Timestamp).toDate(),
-      endTime: (map['endTime'] as Timestamp).toDate(),
+      startDate: (map['startDate'] as Timestamp).toDate(),
+      endDate: (map['endDate'] as Timestamp).toDate(),
+      status: map['status'] ?? '', // Handle null status
     );
   }
 }
